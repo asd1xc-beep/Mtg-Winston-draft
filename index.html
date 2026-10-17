@@ -1,0 +1,1926 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>MTG Chaos Winston Draft</title>
+    <meta name="theme-color" content="#0f1117">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Chaos Winston">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link id="pwaManifestLink" rel="manifest" href="">
+    <link id="appleTouchIconLink" rel="apple-touch-icon" href="">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Cinzel', 'serif'],
+                    },
+                    colors: {
+                        mtg: {
+                            dark: '#0f1117',
+                            panel: '#181b24',
+                            border: '#2a3040',
+                            gold: '#d4af37',
+                            mythic: '#e85d2a',
+                            rare: '#dfc163',
+                            uncommon: '#a0b5c4',
+                            common: '#ffffff'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0b0d12;
+            color: #e2e8f0;
+            background-image: radial-gradient(circle at 50% 0%, #1c2236 0%, #0b0d12 70%);
+            min-height: 100vh;
+        }
+        .card-aspect {
+            aspect-ratio: 63 / 88;
+        }
+        .mtg-card-back {
+            background: linear-gradient(135deg, #4b2c20 0%, #2a1810 100%);
+            border: 4px solid #1a0f0a;
+            position: relative;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7);
+        }
+        .mtg-card-back::after {
+            content: '';
+            position: absolute;
+            inset: 8px;
+            border: 2px solid #8c583a;
+            border-radius: 50% / 40%;
+            background: radial-gradient(ellipse at center, #3b4b59 0%, #1e2730 70%);
+        }
+        .pile-stack-effect {
+            box-shadow: 
+                0 1px 1px rgba(0,0,0,0.4), 
+                0 4px 0 -1px #2a1810, 
+                0 4px 1px -1px rgba(0,0,0,0.4),
+                0 8px 0 -2px #2a1810,
+                0 8px 1px -2px rgba(0,0,0,0.4);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #12151e; }
+        ::-webkit-scrollbar-thumb { background: #2d3548; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #434f6b; }
+        
+        input[type="range"] {
+            accent-color: #d4af37;
+        }
+    </style>
+</head>
+<body class="font-sans antialiased selection:bg-amber-500 selection:text-black flex flex-col min-h-screen">
+
+    <header class="border-b border-mtg-border bg-mtg-panel/80 backdrop-blur-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-700 flex items-center justify-center shadow-lg shadow-amber-600/20 border border-amber-300/30">
+                    <i class="ph-fill ph-cards text-2xl text-black"></i>
+                </div>
+                <div>
+                    <h1 class="font-display font-bold text-lg sm:text-xl tracking-wider text-white flex items-center gap-2">
+                        CHAOS WINSTON
+                        <span class="text-xs font-sans font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">Scryfall Live</span>
+                        <span id="headerRoomBadge" class="hidden text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            ROOM: <span id="headerRoomCodeText">----</span>
+                        </span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Custom 90-Card 2-Player MTG Draft Simulator</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 sm:gap-3">
+                <button id="navSetupBtn" onclick="switchView('setup')" class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 transition">
+                    <i class="ph ph-sliders-horizontal"></i> <span class="hidden sm:inline">Pool</span> Generator
+                </button>
+                <button id="navDraftBtn" onclick="switchView('draft')" disabled class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-slate-800/60 text-slate-500 border border-slate-700/50 flex items-center gap-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="ph ph-swords"></i> Draft <span class="hidden sm:inline">Table</span>
+                </button>
+                <button id="navDeckBtn" onclick="switchView('decks')" disabled class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-slate-800/60 text-slate-500 border border-slate-700/50 flex items-center gap-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="ph ph-stack"></i> <span class="hidden sm:inline">Drafted</span> Pools
+                </button>
+                <button id="installAppHeaderBtn" onclick="openInstallModal()" class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5 transition">
+                    <i class="ph-bold ph-device-mobile-speaker"></i> <span class="hidden md:inline">Install App</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6">
+
+        <!-- ==================== VIEW 1: SETUP & GENERATOR ==================== -->
+        <section id="view-setup" class="space-y-6">
+
+            <!-- Online Multiplayer Lobby Banner -->
+            <div class="bg-gradient-to-r from-indigo-950/80 via-slate-900 to-emerald-950/70 border border-indigo-500/30 rounded-2xl p-5 shadow-xl">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+                    <div class="space-y-1.5">
+                        <div class="flex items-center gap-2">
+                            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 flex items-center gap-1">
+                                <i class="ph-fill ph-broadcast"></i> Real-Time 1v1 Multiplayer
+                            </span>
+                            <span id="authStatusBadge" class="text-[11px] font-mono text-slate-400">Connecting...</span>
+                        </div>
+                        <h2 class="font-display font-bold text-base sm:text-lg text-white">Play Locally or Join an Online Room</h2>
+                        <p class="text-xs text-slate-300 max-w-2xl">
+                            Generate a 90-card pool below to host an online room automatically, or enter a friend's 6-character Room Code here to join their table as Player 2.
+                        </p>
+                        <div class="text-[11px] text-slate-400 font-mono pt-0.5">
+                            Your Player ID: <span id="currentUserIdDisplay" class="text-amber-300 select-all">Initializing...</span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
+                        <div class="flex items-center bg-slate-950/90 border border-slate-700 rounded-xl px-3 py-1.5 focus-within:border-amber-400">
+                            <i class="ph ph-key text-amber-400 mr-2"></i>
+                            <input type="text" id="joinRoomInput" maxlength="6" placeholder="ROOM CODE" class="bg-transparent text-sm font-mono uppercase tracking-widest text-white placeholder-slate-500 focus:outline-none w-28">
+                        </div>
+                        <button id="joinRoomBtn" onclick="window.joinOnlineRoom()" class="px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm bg-emerald-500 hover:bg-emerald-400 text-black flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 transition">
+                            <i class="ph-bold ph-sign-in"></i> Join Friend's Room
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- Left Column: Era, Sets, Colors, & Safety Rules -->
+                <div class="lg:col-span-7 space-y-6">
+                    
+                    <!-- Era & Year Range Card -->
+                    <div class="bg-mtg-panel border border-mtg-border rounded-2xl p-5 shadow-xl space-y-5">
+                        <div class="flex items-center justify-between border-b border-mtg-border pb-3">
+                            <div class="flex items-center gap-2">
+                                <i class="ph-duotone ph-calendar-blank text-amber-400 text-xl"></i>
+                                <h2 class="font-semibold text-white">Era & Release Date Rules</h2>
+                            </div>
+                            <span class="text-xs text-slate-400">1993 – 2026</span>
+                        </div>
+
+                        <!-- Introduced Year Range -->
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between">
+                                <label class="flex items-center gap-2 text-sm font-medium text-slate-200 cursor-pointer">
+                                    <input type="checkbox" id="enableIntroYear" checked onchange="updateQueryPreview()" class="rounded bg-slate-800 border-slate-600 text-amber-500 focus:ring-amber-500">
+                                    <span>Introduced-Year Range</span>
+                                    <span class="text-xs text-slate-400 font-normal">(First paper release)</span>
+                                </label>
+                                <span id="introYearBadge" class="text-xs font-mono bg-slate-800 px-2.5 py-1 rounded-md text-amber-300 border border-slate-700">1993 - 2026</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3 pt-1">
+                                <div>
+                                    <label class="text-xs text-slate-400 block mb-1">From Year</label>
+                                    <input type="number" id="introYearStart" value="1993" min="1993" max="2026" onchange="syncYearInputs('intro')" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:border-amber-500 focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-slate-400 block mb-1">To Year</label>
+                                    <input type="number" id="introYearEnd" value="2026" min="1993" max="2026" onchange="syncYearInputs('intro')" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:border-amber-500 focus:outline-none">
+                                </div>
+                            </div>
+                            <p class="text-xs text-slate-400">Filters via Scryfall <code class="text-amber-300/90 bg-slate-900 px-1 py-0.5 rounded">year</code> parameter on first printing.</p>
+                        </div>
+
+                        <!-- Printed Year Range -->
+                        <div class="space-y-2 pt-3 border-t border-slate-800/80">
+                            <div class="flex items-center justify-between">
+                                <label class="flex items-center gap-2 text-sm font-medium text-slate-200 cursor-pointer">
+                                    <input type="checkbox" id="enablePrintYear" onchange="updateQueryPreview()" class="rounded bg-slate-800 border-slate-600 text-amber-500 focus:ring-amber-500">
+                                    <span>Printed-Year Range</span>
+                                    <span class="text-xs text-slate-400 font-normal">(Any paper printing in era)</span>
+                                </label>
+                                <span id="printYearBadge" class="text-xs font-mono bg-slate-800 px-2.5 py-1 rounded-md text-slate-400 border border-slate-700">Disabled</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3 pt-1">
+                                <div>
+                                    <label class="text-xs text-slate-400 block mb-1">From Year</label>
+                                    <input type="number" id="printYearStart" value="2003" min="1993" max="2026" onchange="syncYearInputs('print')" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:border-amber-500 focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-slate-400 block mb-1">To Year</label>
+                                    <input type="number" id="printYearEnd" value="2014" min="1993" max="2026" onchange="syncYearInputs('print')" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:border-amber-500 focus:outline-none">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Era Presets -->
+                        <div class="pt-2">
+                            <span class="text-xs text-slate-400 block mb-2">Quick Era Presets:</span>
+                            <div class="flex flex-wrap gap-1.5">
+                                <button onclick="applyEraPreset(1993, 2026, 'All History')" class="px-2.5 py-1 rounded-md text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">All History (93-26)</button>
+                                <button onclick="applyEraPreset(1993, 2002, 'Old Border')" class="px-2.5 py-1 rounded-md text-xs bg-slate-800 hover:bg-slate-700 text-amber-200 border border-slate-700 transition">Old Border (93-02)</button>
+                                <button onclick="applyEraPreset(2003, 2014, 'Modern Frame')" class="px-2.5 py-1 rounded-md text-xs bg-slate-800 hover:bg-slate-700 text-sky-200 border border-slate-700 transition">8th–M15 Frame (03-14)</button>
+                                <button onclick="applyEraPreset(2015, 2026, 'Pioneer/Contemporary')" class="px-2.5 py-1 rounded-md text-xs bg-slate-800 hover:bg-slate-700 text-emerald-200 border border-slate-700 transition">Modern Era (15-26)</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sets & Colors Card -->
+                    <div class="bg-mtg-panel border border-mtg-border rounded-2xl p-5 shadow-xl space-y-5">
+                        <div class="flex items-center justify-between border-b border-mtg-border pb-3">
+                            <div class="flex items-center gap-2">
+                                <i class="ph-duotone ph-palette text-amber-400 text-xl"></i>
+                                <h2 class="font-semibold text-white">Colors & Specific Sets</h2>
+                            </div>
+                            <span class="text-xs text-slate-400">Optional Filters</span>
+                        </div>
+
+                        <!-- WUBRG Color Filter -->
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm font-medium text-slate-200">Allowed Colors</label>
+                                <span class="text-xs text-slate-400">Card must fit within selected colors</span>
+                            </div>
+                            <div class="grid grid-cols-5 gap-2">
+                                <label class="cursor-pointer">
+                                    <input type="checkbox" value="W" checked onchange="updateQueryPreview()" class="color-checkbox sr-only peer">
+                                    <div class="p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 peer-checked:bg-amber-100/15 peer-checked:border-amber-200 flex flex-col items-center gap-1 transition">
+                                        <span class="w-6 h-6 rounded-full bg-amber-100 text-slate-900 font-bold text-xs flex items-center justify-center shadow">W</span>
+                                        <span class="text-xs text-slate-300">White</span>
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="checkbox" value="U" checked onchange="updateQueryPreview()" class="color-checkbox sr-only peer">
+                                    <div class="p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 peer-checked:bg-sky-500/20 peer-checked:border-sky-400 flex flex-col items-center gap-1 transition">
+                                        <span class="w-6 h-6 rounded-full bg-sky-500 text-white font-bold text-xs flex items-center justify-center shadow">U</span>
+                                        <span class="text-xs text-slate-300">Blue</span>
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="checkbox" value="B" checked onchange="updateQueryPreview()" class="color-checkbox sr-only peer">
+                                    <div class="p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 peer-checked:bg-purple-900/40 peer-checked:border-purple-400 flex flex-col items-center gap-1 transition">
+                                        <span class="w-6 h-6 rounded-full bg-slate-800 border border-purple-400 text-purple-200 font-bold text-xs flex items-center justify-center shadow">B</span>
+                                        <span class="text-xs text-slate-300">Black</span>
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="checkbox" value="R" checked onchange="updateQueryPreview()" class="color-checkbox sr-only peer">
+                                    <div class="p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 peer-checked:bg-red-500/20 peer-checked:border-red-400 flex flex-col items-center gap-1 transition">
+                                        <span class="w-6 h-6 rounded-full bg-red-600 text-white font-bold text-xs flex items-center justify-center shadow">R</span>
+                                        <span class="text-xs text-slate-300">Red</span>
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="checkbox" value="G" checked onchange="updateQueryPreview()" class="color-checkbox sr-only peer">
+                                    <div class="p-2.5 rounded-xl border border-slate-700 bg-slate-900/60 peer-checked:bg-emerald-500/20 peer-checked:border-emerald-400 flex flex-col items-center gap-1 transition">
+                                        <span class="w-6 h-6 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center shadow">G</span>
+                                        <span class="text-xs text-slate-300">Green</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Selected Sets Filter -->
+                        <div class="space-y-2 pt-3 border-t border-slate-800/80">
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm font-medium text-slate-200">Selected Sets (Set Codes)</label>
+                                <span class="text-xs text-slate-400">Leave blank for all sets</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <input type="text" id="setCodesInput" placeholder="e.g. dom, neo, m20, inv, ody (comma separated)" oninput="updateQueryPreview()" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none">
+                                <button onclick="clearSets()" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700 transition">Clear</button>
+                            </div>
+                            <div class="flex flex-wrap gap-1.5 pt-1">
+                                <span class="text-xs text-slate-500 mr-1 py-0.5">Popular:</span>
+                                <button onclick="toggleSetTag('dom')" class="text-xs px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">+ Dominaria (dom)</button>
+                                <button onclick="toggleSetTag('neo')" class="text-xs px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">+ Kamigawa (neo)</button>
+                                <button onclick="toggleSetTag('ktk')" class="text-xs px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">+ Khans (ktk)</button>
+                                <button onclick="toggleSetTag('isd')" class="text-xs px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">+ Innistrad (isd)</button>
+                                <button onclick="toggleSetTag('inv')" class="text-xs px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">+ Invasion (inv)</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Rarity Buckets & Draft Launch -->
+                <div class="lg:col-span-5 space-y-6">
+                    
+                    <!-- Rarity Distribution Card -->
+                    <div class="bg-mtg-panel border border-mtg-border rounded-2xl p-5 shadow-xl space-y-4">
+                        <div class="flex items-center justify-between border-b border-mtg-border pb-3">
+                            <div class="flex items-center gap-2">
+                                <i class="ph-duotone ph-chart-pie-slice text-amber-400 text-xl"></i>
+                                <h2 class="font-semibold text-white">Rarity Bucket Distribution</h2>
+                            </div>
+                            <span id="totalCardsBadge" class="text-xs font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">90 Cards (100%)</span>
+                        </div>
+
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Evaluates the <strong>latest released paper printing</strong> (`game:paper`). Adjust the exact percentage of each rarity in your 90-card Winston deck:
+                        </p>
+
+                        <!-- Sliders -->
+                        <div class="space-y-3.5 pt-1">
+                            <!-- Mythic -->
+                            <div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span class="font-semibold text-mtg-mythic flex items-center gap-1.5">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-mtg-mythic inline-block"></span> Mythic Rare
+                                    </span>
+                                    <span id="mythicLabel" class="font-mono text-slate-300">5% (4 cards)</span>
+                                </div>
+                                <input type="range" id="sliderMythic" min="0" max="100" value="5" oninput="rebalanceRarities('mythic')" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer">
+                            </div>
+
+                            <!-- Rare -->
+                            <div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span class="font-semibold text-mtg-rare flex items-center gap-1.5">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-mtg-rare inline-block"></span> Rare
+                                    </span>
+                                    <span id="rareLabel" class="font-mono text-slate-300">15% (14 cards)</span>
+                                </div>
+                                <input type="range" id="sliderRare" min="0" max="100" value="15" oninput="rebalanceRarities('rare')" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer">
+                            </div>
+
+                            <!-- Uncommon -->
+                            <div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span class="font-semibold text-mtg-uncommon flex items-center gap-1.5">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-mtg-uncommon inline-block"></span> Uncommon
+                                    </span>
+                                    <span id="uncommonLabel" class="font-mono text-slate-300">30% (27 cards)</span>
+                                </div>
+                                <input type="range" id="sliderUncommon" min="0" max="100" value="30" oninput="rebalanceRarities('uncommon')" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer">
+                            </div>
+
+                            <!-- Common -->
+                            <div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span class="font-semibold text-white flex items-center gap-1.5">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-white inline-block"></span> Common
+                                    </span>
+                                    <span id="commonLabel" class="font-mono text-slate-300">50% (45 cards)</span>
+                                </div>
+                                <input type="range" id="sliderCommon" min="0" max="100" value="50" oninput="rebalanceRarities('common')" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer">
+                            </div>
+                        </div>
+
+                        <!-- Rarity Presets -->
+                        <div class="flex flex-wrap gap-1.5 pt-2 border-t border-slate-800">
+                            <button onclick="setRarityPreset(5, 15, 30, 50)" class="px-2.5 py-1 rounded text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">Retail Booster-ish</button>
+                            <button onclick="setRarityPreset(0, 0, 0, 100)" class="px-2.5 py-1 rounded text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">100% Pauper</button>
+                            <button onclick="setRarityPreset(0, 0, 40, 60)" class="px-2.5 py-1 rounded text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">Peasant (U/C)</button>
+                            <button onclick="setRarityPreset(25, 50, 25, 0)" class="px-2.5 py-1 rounded text-xs bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700">High-Power Cube</button>
+                        </div>
+                    </div>
+
+                    <!-- Playability & Table Settings -->
+                    <div class="bg-mtg-panel border border-mtg-border rounded-2xl p-5 shadow-xl space-y-4">
+                        <h3 class="font-semibold text-white text-sm flex items-center gap-2">
+                            <i class="ph-duotone ph-shield-check text-emerald-400 text-lg"></i>
+                            Safety & Tabletop Rules
+                        </h3>
+                        <div class="space-y-2 text-xs text-slate-300">
+                            <label class="flex items-center gap-2.5 cursor-pointer">
+                                <input type="checkbox" id="excludeFunny" checked onchange="updateQueryPreview()" class="rounded bg-slate-800 border-slate-600 text-amber-500">
+                                <span>Exclude Un-Sets, Silver-border, Stickers & Attractions (<code class="text-slate-400">-is:funny</code>)</span>
+                            </label>
+                            <label class="flex items-center gap-2.5 cursor-pointer">
+                                <input type="checkbox" id="excludeBasic" checked onchange="updateQueryPreview()" class="rounded bg-slate-800 border-slate-600 text-amber-500">
+                                <span>Exclude Basic Lands from the 90-card pool (<code class="text-slate-400">-t:basic</code>)</span>
+                            </label>
+                            <label class="flex items-center gap-2.5 cursor-pointer">
+                                <input type="checkbox" id="publicSeenToggle" checked class="rounded bg-slate-800 border-slate-600 text-amber-500">
+                                <span><strong>Face-Up Memory Help:</strong> Mark cards that both players have seen</span>
+                            </label>
+                        </div>
+
+                        <!-- Live Scryfall Query Inspector -->
+                        <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-3 space-y-1">
+                            <div class="flex items-center justify-between text-[11px] text-slate-400">
+                                <span>Generated Scryfall Query Base:</span>
+                                <span class="text-emerald-400">Unique Oracle Mode</span>
+                            </div>
+                            <code id="queryPreviewBox" class="block text-xs text-amber-300 font-mono break-all">game:paper -is:funny -t:basic</code>
+                        </div>
+
+                        <!-- Draft Mode Selector -->
+                        <div class="grid grid-cols-2 gap-2.5 pt-1">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="draftModeSelect" value="online" checked class="sr-only peer">
+                                <div class="p-3 rounded-xl border border-slate-700 bg-slate-900/70 peer-checked:bg-indigo-500/20 peer-checked:border-indigo-400 flex items-center gap-2.5 transition">
+                                    <i class="ph-duotone ph-globe-hemisphere-west text-xl text-indigo-400"></i>
+                                    <div>
+                                        <div class="text-xs font-bold text-white">Host Online Room</div>
+                                        <div class="text-[10px] text-slate-400">Get a code for a friend</div>
+                                    </div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="draftModeSelect" value="local" class="sr-only peer">
+                                <div class="p-3 rounded-xl border border-slate-700 bg-slate-900/70 peer-checked:bg-amber-500/20 peer-checked:border-amber-400 flex items-center gap-2.5 transition">
+                                    <i class="ph-duotone ph-users text-xl text-amber-400"></i>
+                                    <div>
+                                        <div class="text-xs font-bold text-white">Local Pass & Play</div>
+                                        <div class="text-[10px] text-slate-400">Share 1 screen</div>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- Generate Button & Progress -->
+                        <button id="generatePoolBtn" onclick="generateWinstonPool()" class="w-full py-3.5 px-5 rounded-xl font-display font-bold tracking-wider text-sm sm:text-base text-black bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 hover:from-amber-300 hover:to-orange-400 shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 transition transform active:scale-[0.99]">
+                            <i class="ph-bold ph-sparkle text-lg"></i>
+                            GENERATE 90-CARD WINSTON DECK
+                        </button>
+
+                        <!-- Loading Progress Bar -->
+                        <div id="loadingContainer" class="hidden space-y-2 pt-2">
+                            <div class="flex justify-between text-xs text-amber-300">
+                                <span id="loadingStatusText">Querying Scryfall Oracle Database...</span>
+                                <span id="loadingPercentText">0%</span>
+                            </div>
+                            <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                                <div id="loadingBarFill" class="h-full bg-gradient-to-r from-amber-500 to-orange-500 w-0 transition-all duration-300"></div>
+                            </div>
+                        </div>
+
+                        <!-- Error / Warning Banner -->
+                        <div id="setupAlertBox" class="hidden p-3 rounded-xl bg-red-950/70 border border-red-500/40 text-xs text-red-200"></div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== VIEW 2: WINSTON DRAFT TABLETOP ==================== -->
+        <section id="view-draft" class="hidden space-y-6">
+
+            <!-- Online Multiplayer Room Status Bar (Shown when in an Online Room) -->
+            <div id="multiplayerStatusBar" class="hidden bg-indigo-950/70 border border-indigo-500/40 rounded-2xl p-3.5 px-5 flex flex-wrap items-center justify-between gap-4">
+                <div class="flex flex-wrap items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs uppercase tracking-wider text-indigo-300 font-semibold">Room Code:</span>
+                        <span id="activeRoomCodeDisplay" class="font-mono font-bold text-base px-2.5 py-0.5 rounded-lg bg-slate-950 text-amber-400 border border-indigo-400/40 tracking-widest">------</span>
+                        <button onclick="copyRoomCode()" class="px-2.5 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 text-xs flex items-center gap-1 transition">
+                            <i class="ph ph-copy"></i> <span id="copyRoomBtnText">Copy Code</span>
+                        </button>
+                    </div>
+
+                    <div class="h-4 w-px bg-indigo-800 hidden sm:block"></div>
+
+                    <div class="flex items-center gap-3 text-xs">
+                        <span id="mySeatBadge" class="px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 font-semibold">
+                            You are Player 1
+                        </span>
+                        <span id="opponentPresenceText" class="text-slate-300 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                            Waiting for Player 2 to join...
+                        </span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button id="claimPlayer2Btn" onclick="window.claimPlayer2Seat()" class="hidden px-3 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs transition">
+                        Sit as Player 2
+                    </button>
+                    <button onclick="window.leaveOnlineRoom()" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-red-950/80 text-slate-300 hover:text-red-200 border border-slate-700 text-xs transition">
+                        Leave Room
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Turn & Status Banner -->
+            <div class="bg-mtg-panel border border-mtg-border rounded-2xl p-4 shadow-xl flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center gap-4">
+                    <div id="activePlayerAvatar" class="w-12 h-12 rounded-xl bg-amber-500 text-black font-display font-bold text-xl flex items-center justify-center shadow-md">
+                        P1
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span id="activePlayerTitle" class="font-display font-bold text-lg text-white">Player 1's Turn</span>
+                            <span id="draftStepBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-medium">Examining Pile 1</span>
+                        </div>
+                        <p id="draftInstructionText" class="text-xs sm:text-sm text-slate-300 mt-0.5">
+                            Click "Look at Pile 1" to privately inspect the cards and decide whether to Draft or Pass.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Scoreboard / Counts -->
+                <div class="flex items-center gap-3 sm:gap-5 bg-slate-900/90 border border-slate-800 px-4 py-2.5 rounded-xl">
+                    <div class="text-center">
+                        <span class="text-[11px] uppercase tracking-wider text-slate-400 block">Main Deck</span>
+                        <span id="mainDeckCount" class="font-mono font-bold text-lg text-amber-400">87</span>
+                    </div>
+                    <div class="h-7 w-px bg-slate-800"></div>
+                    <div class="text-center">
+                        <span class="text-[11px] uppercase tracking-wider text-slate-400 block">Player 1 Pool</span>
+                        <span id="p1DraftCount" class="font-mono font-bold text-lg text-sky-400">0</span>
+                    </div>
+                    <div class="h-7 w-px bg-slate-800"></div>
+                    <div class="text-center">
+                        <span class="text-[11px] uppercase tracking-wider text-slate-400 block">Player 2 Pool</span>
+                        <span id="p2DraftCount" class="font-mono font-bold text-lg text-emerald-400">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Deck + 3 Winston Piles Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                
+                <!-- Main Library Column -->
+                <div class="bg-mtg-panel/60 border border-mtg-border rounded-2xl p-4 flex flex-col items-center justify-between">
+                    <div class="w-full flex items-center justify-between mb-3">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Winston Library</span>
+                        <span id="libraryRemainingTag" class="text-xs font-mono text-amber-400">87 left</span>
+                    </div>
+
+                    <div id="mainLibraryVisual" class="w-40 card-aspect rounded-xl mtg-card-back pile-stack-effect flex items-center justify-center my-2">
+                        <div class="z-10 bg-black/75 backdrop-blur px-3 py-1.5 rounded-lg border border-amber-500/40 text-center">
+                            <span id="deckOverlayNumber" class="font-display font-bold text-2xl text-amber-400 block">87</span>
+                            <span class="text-[10px] uppercase tracking-widest text-slate-300">Cards</span>
+                        </div>
+                    </div>
+
+                    <p class="text-[11px] text-slate-400 text-center mt-3">
+                        Passing a pile adds 1 card from the Library to it. Passing Pile 3 drafts the top card blind!
+                    </p>
+                </div>
+
+                <!-- Pile 1 -->
+                <div id="pileBox-0" class="bg-mtg-panel border-2 border-amber-500/70 rounded-2xl p-4 flex flex-col justify-between transition-all"></div>
+
+                <!-- Pile 2 -->
+                <div id="pileBox-1" class="bg-mtg-panel border border-mtg-border rounded-2xl p-4 flex flex-col justify-between transition-all"></div>
+
+                <!-- Pile 3 -->
+                <div id="pileBox-2" class="bg-mtg-panel border border-mtg-border rounded-2xl p-4 flex flex-col justify-between transition-all"></div>
+
+            </div>
+
+            <!-- Active Pile Inspection Area (Revealed when looking at a pile) -->
+            <div id="inspectionDrawer" class="bg-slate-900/95 border border-amber-500/40 rounded-2xl p-5 shadow-2xl space-y-4">
+                <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-3">
+                    <div>
+                        <h3 id="inspectionTitle" class="font-display font-bold text-base sm:text-lg text-white flex items-center gap-2">
+                            <i class="ph-fill ph-eye text-amber-400"></i>
+                            Pile 1 Inspection
+                        </h3>
+                        <p id="inspectionSubtitle" class="text-xs text-slate-400">Click "Reveal Pile" when the active player is ready.</p>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div id="inspectionActionBtns" class="flex flex-wrap items-center gap-2.5">
+                        <button id="btnRevealPile" onclick="revealCurrentPile()" class="px-4 py-2 rounded-xl font-semibold text-xs sm:text-sm bg-amber-500 hover:bg-amber-400 text-black flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition">
+                            <i class="ph-bold ph-eye"></i> Reveal Pile 1
+                        </button>
+                        <button id="btnTakePile" onclick="takeCurrentPile()" class="hidden px-4 py-2 rounded-xl font-semibold text-xs sm:text-sm bg-emerald-500 hover:bg-emerald-400 text-black flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition">
+                            <i class="ph-bold ph-check-circle"></i> Draft This Pile
+                        </button>
+                        <button id="btnPassPile" onclick="passCurrentPile()" class="hidden px-4 py-2 rounded-xl font-semibold text-xs sm:text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 flex items-center gap-1.5 transition">
+                            <i class="ph-bold ph-arrow-right"></i> Pass & Add 1 Card
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Cards inside the currently inspected pile -->
+                <div id="inspectedCardsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 min-h-[220px] items-center justify-center">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Action Log Bar -->
+            <div class="bg-mtg-panel border border-mtg-border rounded-xl p-3 flex items-center justify-between text-xs text-slate-400">
+                <div class="flex items-center gap-2 truncate">
+                    <i class="ph-fill ph-scroll text-amber-400"></i>
+                    <span id="lastActionLog" class="truncate">Winston Draft initialized. 3 piles of 1 card dealt.</span>
+                </div>
+                <button onclick="switchView('decks')" class="text-amber-400 hover:underline shrink-0 ml-3">View Drafted Pools &rarr;</button>
+            </div>
+        </section>
+
+        <!-- ==================== VIEW 3: DRAFTED POOLS & DECK EXPORT ==================== -->
+        <section id="view-decks" class="hidden space-y-6">
+            <div class="bg-mtg-panel border border-mtg-border rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center gap-2">
+                    <button id="tabP1Pool" onclick="selectPoolTab(1)" class="px-4 py-2 rounded-xl font-semibold text-sm bg-sky-500 text-black transition">
+                        Player 1 Pool (<span id="tabP1Count">0</span>)
+                    </button>
+                    <button id="tabP2Pool" onclick="selectPoolTab(2)" class="px-4 py-2 rounded-xl font-semibold text-sm bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
+                        Player 2 Pool (<span id="tabP2Count">0</span>)
+                    </button>
+                    <button id="tabAllPool" onclick="selectPoolTab(0)" class="px-4 py-2 rounded-xl font-semibold text-sm bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
+                        Full 90-Card Manifest
+                    </button>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="copyDecklist('mtga')" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 transition">
+                        <i class="ph ph-copy"></i> Copy MTGA / Moxfield Format
+                    </button>
+                    <button onclick="copyDecklist('simple')" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition">
+                        <i class="ph ph-list-Bullets"></i> Copy Plain Text
+                    </button>
+                </div>
+            </div>
+
+            <!-- Copy Notification Toast -->
+            <div id="copyToast" class="hidden p-3 rounded-xl bg-emerald-950/90 border border-emerald-500/40 text-emerald-200 text-xs flex items-center justify-between">
+                <span id="copyToastText">Decklist copied to clipboard!</span>
+                <button onclick="document.getElementById('copyToast').classList.add('hidden')" class="text-emerald-400 hover:text-white">&times;</button>
+            </div>
+
+            <!-- Visual Pool Grid -->
+            <div id="deckPoolGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <!-- Populated dynamically -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Card Zoom Modal -->
+    <div id="cardModal" onclick="closeCardModal()" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div onclick="event.stopPropagation()" class="bg-mtg-panel border border-mtg-border rounded-2xl max-w-md w-full p-4 space-y-3 shadow-2xl">
+            <div class="flex items-center justify-between">
+                <h4 id="modalCardName" class="font-bold text-white text-base">Card Name</h4>
+                <button onclick="closeCardModal()" class="text-slate-400 hover:text-white text-lg">&times;</button>
+            </div>
+            <img id="modalCardImg" src="" alt="Card Image" class="w-full rounded-xl shadow-lg">
+            <div class="flex items-center justify-between text-xs text-slate-400 pt-1">
+                <span id="modalCardSet">Set Info</span>
+                <a id="modalScryfallLink" href="#" target="_blank" rel="noopener" class="text-amber-400 hover:underline flex items-center gap-1">
+                    View on Scryfall <i class="ph ph-arrow-square-out"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Install as Phone / Web App Modal -->
+    <div id="installAppModal" onclick="closeInstallModal()" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div onclick="event.stopPropagation()" class="bg-mtg-panel border border-mtg-border rounded-2xl max-w-lg w-full p-5 sm:p-6 space-y-5 shadow-2xl">
+            <div class="flex items-start justify-between gap-4 border-b border-mtg-border pb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-700 flex items-center justify-center shadow-lg border border-amber-300/30 shrink-0">
+                        <i class="ph-fill ph-cards text-2xl text-black"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-display font-bold text-lg text-white">Install Chaos Winston</h3>
+                        <p class="text-xs text-slate-400">Run full-screen on iOS, Android, or Desktop like a native app</p>
+                    </div>
+                </div>
+                <button onclick="closeInstallModal()" class="text-slate-400 hover:text-white text-xl leading-none">&times;</button>
+            </div>
+
+            <!-- Native Prompt Button (Shown automatically on Chrome/Edge/Android when eligible) -->
+            <div id="nativeInstallBanner" class="hidden p-4 rounded-xl bg-emerald-950/60 border border-emerald-500/40 flex items-center justify-between gap-3">
+                <div class="text-xs text-emerald-200">
+                    <strong class="block text-sm text-white">One-Click Install Ready!</strong>
+                    Your browser supports direct app installation.
+                </div>
+                <button onclick="triggerNativeInstall()" class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs shrink-0 shadow-lg">
+                    Install Now
+                </button>
+            </div>
+
+            <!-- Platform Instructions -->
+            <div class="space-y-3 text-xs sm:text-sm text-slate-300">
+                <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+                    <div class="font-semibold text-white flex items-center gap-2">
+                        <i class="ph-fill ph-apple-logo text-amber-400 text-base"></i>
+                        iPhone & iPad (Safari)
+                    </div>
+                    <ol class="list-decimal list-inside text-xs text-slate-400 space-y-1">
+                        <li>Open your hosted app link in <strong>Safari</strong>.</li>
+                        <li>Tap the <strong>Share</strong> button <i class="ph ph-export text-slate-200"></i> at the bottom of the screen.</li>
+                        <li>Scroll down and tap <strong>"Add to Home Screen"</strong>.</li>
+                        <li>Launch <strong>Chaos Winston</strong> from your Home Screen in full-screen mode!</li>
+                    </ol>
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+                    <div class="font-semibold text-white flex items-center gap-2">
+                        <i class="ph-fill ph-android-logo text-emerald-400 text-base"></i>
+                        Android (Chrome) & Desktop Browser
+                    </div>
+                    <ol class="list-decimal list-inside text-xs text-slate-400 space-y-1">
+                        <li>Open your hosted app link in <strong>Chrome</strong> or <strong>Edge</strong>.</li>
+                        <li>Tap the <strong>three-dot menu</strong> (top right) and select <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</li>
+                    </ol>
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-indigo-950/50 border border-indigo-500/30 space-y-2">
+                    <div class="font-semibold text-indigo-200 flex items-center justify-between">
+                        <span class="flex items-center gap-1.5"><i class="ph-fill ph-cloud-arrow-up text-indigo-400"></i> Want to host this yourself for free?</span>
+                        <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300">Single HTML File</span>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Because this entire app is self-contained inside a single <code class="text-amber-300">index.html</code> file, you can drag-and-drop it onto <strong>Netlify Drop</strong>, <strong>GitHub Pages</strong>, or <strong>Vercel</strong> to get a permanent public URL in 30 seconds!
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-1">
+                <button onclick="closeInstallModal()" class="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition">
+                    Got It
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== APPLICATION STATE ====================
+        const state = {
+            mode: 'local',         // 'local' or 'online'
+            roomCode: null,        // 6-char room code when online
+            mySeat: 1,             // 1 (P1), 2 (P2), or 0 (Spectator)
+            player1Id: null,
+            player2Id: null,
+            lastActionText: 'Winston Draft initialized. 3 piles of 1 card dealt.',
+            fullPool: [],          // All 90 cards generated
+            library: [],           // Remaining cards in main Winston deck
+            piles: [[], [], []],   // The 3 Winston piles
+            playerPools: { 1: [], 2: [] },
+            activePlayer: 1,       // 1 or 2
+            currentPileIndex: 0,   // 0, 1, or 2
+            pileRevealed: false,   // Has the active player clicked "Reveal"?
+            draftFinished: false,
+            selectedPoolView: 1    // 1 = P1, 2 = P2, 0 = Full 90
+        };
+
+        // Hook for Firebase sync callback
+        window.syncRoomToCloud = async function() {};
+
+        // Helper to determine if this device's user is allowed to act on the current turn
+        function isMyTurnToAct() {
+            if (state.draftFinished) return false;
+            if (state.mode === 'local') return true;
+            return state.mySeat === state.activePlayer;
+        }
+
+        function copyRoomCode() {
+            if (!state.roomCode) return;
+            const temp = document.createElement('textarea');
+            temp.value = state.roomCode;
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+
+            const btnText = document.getElementById('copyRoomBtnText');
+            btnText.textContent = 'Copied!';
+            setTimeout(() => { btnText.textContent = 'Copy Code'; }, 2000);
+        }
+
+        // Keep rarity percentages balanced to 100%
+        function rebalanceRarities(changedKey) {
+            const keys = ['mythic', 'rare', 'uncommon', 'common'];
+            const sliders = {
+                mythic: document.getElementById('sliderMythic'),
+                rare: document.getElementById('sliderRare'),
+                uncommon: document.getElementById('sliderUncommon'),
+                common: document.getElementById('sliderCommon')
+            };
+
+            let total = keys.reduce((sum, k) => sum + parseInt(sliders[k].value, 10), 0);
+            if (total !== 100) {
+                let diff = total - 100;
+                // Adjust other sliders proportionally or sequentially
+                const otherKeys = keys.filter(k => k !== changedKey).reverse();
+                for (let k of otherKeys) {
+                    let val = parseInt(sliders[k].value, 10);
+                    if (diff > 0 && val > 0) {
+                        let subtract = Math.min(val, diff);
+                        sliders[k].value = val - subtract;
+                        diff -= subtract;
+                    } else if (diff < 0 && val < 100) {
+                        let add = Math.min(100 - val, -diff);
+                        sliders[k].value = val + add;
+                        diff += add;
+                    }
+                }
+            }
+            updateRarityLabels();
+        }
+
+        function setRarityPreset(m, r, u, c) {
+            document.getElementById('sliderMythic').value = m;
+            document.getElementById('sliderRare').value = r;
+            document.getElementById('sliderUncommon').value = u;
+            document.getElementById('sliderCommon').value = c;
+            updateRarityLabels();
+        }
+
+        function getRaritySlotCounts() {
+            const mPct = parseInt(document.getElementById('sliderMythic').value, 10);
+            const rPct = parseInt(document.getElementById('sliderRare').value, 10);
+            const uPct = parseInt(document.getElementById('sliderUncommon').value, 10);
+
+            let mCount = Math.round((mPct / 100) * 90);
+            let rCount = Math.round((rPct / 100) * 90);
+            let uCount = Math.round((uPct / 100) * 90);
+            let cCount = Math.max(0, 90 - (mCount + rCount + uCount));
+
+            return { mythic: mCount, rare: rCount, uncommon: uCount, common: cCount };
+        }
+
+        function updateRarityLabels() {
+            const counts = getRaritySlotCounts();
+            document.getElementById('mythicLabel').textContent = `${document.getElementById('sliderMythic').value}% (${counts.mythic} cards)`;
+            document.getElementById('rareLabel').textContent = `${document.getElementById('sliderRare').value}% (${counts.rare} cards)`;
+            document.getElementById('uncommonLabel').textContent = `${document.getElementById('sliderUncommon').value}% (${counts.uncommon} cards)`;
+            document.getElementById('commonLabel').textContent = `${document.getElementById('sliderCommon').value}% (${counts.common} cards)`;
+        }
+
+        function syncYearInputs(type) {
+            if (type === 'intro') {
+                let s = parseInt(document.getElementById('introYearStart').value, 10) || 1993;
+                let e = parseInt(document.getElementById('introYearEnd').value, 10) || 2026;
+                if (s > e) { document.getElementById('introYearEnd').value = s; }
+            } else {
+                let s = parseInt(document.getElementById('printYearStart').value, 10) || 1993;
+                let e = parseInt(document.getElementById('printYearEnd').value, 10) || 2026;
+                if (s > e) { document.getElementById('printYearEnd').value = s; }
+            }
+            updateQueryPreview();
+        }
+
+        function applyEraPreset(startYear, endYear) {
+            document.getElementById('enableIntroYear').checked = true;
+            document.getElementById('introYearStart').value = startYear;
+            document.getElementById('introYearEnd').value = endYear;
+            updateQueryPreview();
+        }
+
+        function toggleSetTag(code) {
+            const input = document.getElementById('setCodesInput');
+            let sets = input.value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+            if (sets.includes(code)) {
+                sets = sets.filter(s => s !== code);
+            } else {
+                sets.push(code);
+            }
+            input.value = sets.join(', ');
+            updateQueryPreview();
+        }
+
+        function clearSets() {
+            document.getElementById('setCodesInput').value = '';
+            updateQueryPreview();
+        }
+
+        function buildBaseScryfallQuery() {
+            const parts = ['game:paper'];
+
+            // Playability filters
+            if (document.getElementById('excludeFunny').checked) {
+                parts.push('-is:funny -layout:token -layout:art_series -layout:planar -layout:scheme -layout:vanguard');
+            }
+            if (document.getElementById('excludeBasic').checked) {
+                parts.push('-t:basic');
+            }
+
+            // Colors
+            const checkedColors = Array.from(document.querySelectorAll('.color-checkbox:checked')).map(cb => cb.value);
+            if (checkedColors.length === 0) {
+                parts.push('c:c'); // Colorless only if all unchecked
+            } else if (checkedColors.length < 5) {
+                parts.push(`id<=${checkedColors.join('')}`);
+            }
+
+            // Selected Sets
+            const rawSets = document.getElementById('setCodesInput').value;
+            const setList = rawSets.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+            if (setList.length > 0) {
+                const setClause = setList.map(s => `s:${s}`).join(' OR ');
+                parts.push(`(${setClause})`);
+            }
+
+            // Year Filters
+            const useIntro = document.getElementById('enableIntroYear').checked;
+            const introStart = parseInt(document.getElementById('introYearStart').value, 10) || 1993;
+            const introEnd = parseInt(document.getElementById('introYearEnd').value, 10) || 2026;
+
+            const usePrint = document.getElementById('enablePrintYear').checked;
+            const printStart = parseInt(document.getElementById('printYearStart').value, 10) || 1993;
+            const printEnd = parseInt(document.getElementById('printYearEnd').value, 10) || 2026;
+
+            document.getElementById('introYearBadge').textContent = useIntro ? `${introStart} - ${introEnd}` : 'Disabled';
+            document.getElementById('printYearBadge').textContent = usePrint ? `${printStart} - ${printEnd}` : 'Disabled';
+
+            // Scryfall year query
+            if (useIntro && !usePrint) {
+                parts.push(`year>=${introStart} year<=${introEnd}`);
+            } else if (usePrint && !useIntro) {
+                parts.push(`year>=${printStart} year<=${printEnd}`);
+            } else if (useIntro && usePrint) {
+                const minY = Math.max(introStart, printStart);
+                const maxY = Math.min(introEnd, printEnd);
+                parts.push(`year>=${minY} year<=${maxY}`);
+            }
+
+            return parts.join(' ');
+        }
+
+        function updateQueryPreview() {
+            const q = buildBaseScryfallQuery();
+            document.getElementById('queryPreviewBox').textContent = q;
+        }
+
+        // Fetch random unique cards for a specific rarity bucket using Scryfall search API
+        async function fetchBucketCards(baseQuery, rarity, countNeeded, seenOracleIds) {
+            if (countNeeded <= 0) return [];
+            
+            // If user selected pre-2008 era and asks for Mythics, fallback gracefully to Rare if 0 Mythics exist
+            const rarityQuery = `${baseQuery} r:${rarity}`;
+            const collected = [];
+
+            // Fetch up to 2 random pages if needed to fill bucket without hitting rate limits
+            const url = `https://api.scryfall.com/cards/search?q=${encodeURIComponent(rarityQuery)}&unique=cards&order=random`;
+            
+            try {
+                const res = await fetch(url);
+                if (!res.ok) {
+                    if (rarity === 'mythic') {
+                        // Fallback to rare if era has no mythics (e.g., 1993-2007)
+                        return fetchBucketCards(baseQuery, 'rare', countNeeded, seenOracleIds);
+                    }
+                    return [];
+                }
+                const data = await res.json();
+                const cards = data.data || [];
+
+                // Shuffle array in place for extra randomness
+                for (let i = cards.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [cards[i], cards[j]] = [cards[j], cards[i]];
+                }
+
+                for (const card of cards) {
+                    if (collected.length >= countNeeded) break;
+                    const oracleId = card.oracle_id || card.id;
+                    if (seenOracleIds.has(oracleId)) continue;
+
+                    // Ensure card has a valid image
+                    const imageUrl = getCardImageUrl(card);
+                    if (!imageUrl) continue;
+
+                    seenOracleIds.add(oracleId);
+                    collected.push({
+                        id: card.id,
+                        oracle_id: oracleId,
+                        name: card.name,
+                        rarity: card.rarity,
+                        set: card.set.toUpperCase(),
+                        set_name: card.set_name,
+                        collector_number: card.collector_number,
+                        released_at: card.released_at ? card.released_at.substring(0, 4) : 'Unknown',
+                        type_line: card.type_line || '',
+                        cmc: card.cmc || 0,
+                        image: imageUrl,
+                        scryfall_uri: card.scryfall_uri || '#',
+                        seenByBoth: false
+                    });
+                }
+            } catch (err) {
+                console.error('Error fetching rarity bucket:', rarity, err);
+            }
+
+            return collected;
+        }
+
+        function getCardImageUrl(card) {
+            if (card.image_uris && card.image_uris.normal) {
+                return card.image_uris.normal;
+            }
+            if (card.card_faces && card.card_faces[0] && card.card_faces[0].image_uris) {
+                return card.card_faces[0].image_uris.normal;
+            }
+            return null;
+        }
+
+        async function generateWinstonPool() {
+            const btn = document.getElementById('generatePoolBtn');
+            const loadingBox = document.getElementById('loadingContainer');
+            const statusText = document.getElementById('loadingStatusText');
+            const pctText = document.getElementById('loadingPercentText');
+            const barFill = document.getElementById('loadingBarFill');
+            const alertBox = document.getElementById('setupAlertBox');
+
+            alertBox.classList.add('hidden');
+            btn.disabled = true;
+            loadingBox.classList.remove('hidden');
+
+            const baseQuery = buildBaseScryfallQuery();
+            const counts = getRaritySlotCounts();
+            const seenOracleIds = new Set();
+            let pool = [];
+
+            const buckets = [
+                { key: 'mythic', label: 'Mythic Rares', count: counts.mythic },
+                { key: 'rare', label: 'Rares', count: counts.rare },
+                { key: 'uncommon', label: 'Uncommons', count: counts.uncommon },
+                { key: 'common', label: 'Commons', count: counts.common }
+            ];
+
+            let completedSteps = 0;
+            for (const b of buckets) {
+                statusText.textContent = `Rolling ${b.count} random ${b.label} from Scryfall...`;
+                const pct = Math.round((completedSteps / buckets.length) * 85);
+                pctText.textContent = `${pct}%`;
+                barFill.style.width = `${pct}%`;
+
+                if (b.count > 0) {
+                    const cards = await fetchBucketCards(baseQuery, b.key, b.count, seenOracleIds);
+                    pool = pool.concat(cards);
+                    // Polite 120ms delay for Scryfall rate limit guidelines
+                    await new Promise(r => setTimeout(r, 120));
+                }
+                completedSteps++;
+            }
+
+            // If strict filters returned fewer than 90 cards, top up from any rarity matching baseQuery
+            if (pool.length < 90 && pool.length > 0) {
+                statusText.textContent = `Topping up remaining ${90 - pool.length} slots...`;
+                const extra = await fetchBucketCards(baseQuery, 'common OR r:uncommon OR r:rare', 90 - pool.length, seenOracleIds);
+                pool = pool.concat(extra);
+            }
+
+            btn.disabled = false;
+
+            if (pool.length < 15) {
+                loadingBox.classList.add('hidden');
+                alertBox.textContent = `Your filter combination only returned ${pool.length} unique cards on Scryfall. Try widening your year range or checking more colors/sets!`;
+                alertBox.classList.remove('hidden');
+                return;
+            }
+
+            // Final Fisher-Yates shuffle of all 90 cards
+            for (let i = pool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [pool[i], pool[j]] = [pool[j], pool[i]];
+            }
+
+            barFill.style.width = '100%';
+            pctText.textContent = '100%';
+            statusText.textContent = `Ready! ${pool.length} unique cards shuffled into Winston Library.`;
+
+            const selectedMode = document.querySelector('input[name="draftModeSelect"]:checked')?.value || 'online';
+
+            if (selectedMode === 'online' && typeof window.hostOnlineRoomWithPool === 'function') {
+                statusText.textContent = `Creating online multiplayer room...`;
+                await window.hostOnlineRoomWithPool(pool);
+            } else {
+                state.mode = 'local';
+                state.roomCode = null;
+                initWinstonDraft(pool);
+            }
+
+            setTimeout(() => {
+                loadingBox.classList.add('hidden');
+                switchView('draft');
+            }, 400);
+        }
+
+        function initWinstonDraft(cards) {
+            state.fullPool = [...cards];
+            state.library = [...cards];
+            // Deal 1 card into each of the 3 piles
+            state.piles = [
+                [state.library.pop()],
+                [state.library.pop()],
+                [state.library.pop()]
+            ];
+            state.playerPools = { 1: [], 2: [] };
+            state.activePlayer = 1;
+            state.currentPileIndex = 0;
+            state.pileRevealed = false;
+            state.draftFinished = false;
+            state.lastActionText = `New ${cards.length}-card Chaos Winston Draft started! Player 1 begins at Pile 1.`;
+
+            document.getElementById('navDraftBtn').disabled = false;
+            document.getElementById('navDeckBtn').disabled = false;
+            document.getElementById('lastActionLog').textContent = state.lastActionText;
+
+            renderDraftTable();
+            renderPoolView();
+        }
+
+        function renderMultiplayerBar() {
+            const bar = document.getElementById('multiplayerStatusBar');
+            const headerBadge = document.getElementById('headerRoomBadge');
+            const headerCodeText = document.getElementById('headerRoomCodeText');
+
+            if (state.mode !== 'online' || !state.roomCode) {
+                bar.classList.add('hidden');
+                headerBadge.classList.add('hidden');
+                return;
+            }
+
+            bar.classList.remove('hidden');
+            headerBadge.classList.remove('hidden');
+            headerCodeText.textContent = state.roomCode;
+            document.getElementById('activeRoomCodeDisplay').textContent = state.roomCode;
+
+            const seatBadge = document.getElementById('mySeatBadge');
+            if (state.mySeat === 1) {
+                seatBadge.textContent = 'You are Player 1 (Host)';
+                seatBadge.className = 'px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40 font-semibold';
+            } else if (state.mySeat === 2) {
+                seatBadge.textContent = 'You are Player 2';
+                seatBadge.className = 'px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold';
+            } else {
+                seatBadge.textContent = 'Spectator Mode';
+                seatBadge.className = 'px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-semibold';
+            }
+
+            const presence = document.getElementById('opponentPresenceText');
+            const claimBtn = document.getElementById('claimPlayer2Btn');
+
+            if (state.player2Id) {
+                presence.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Both Players Connected (P1 & P2 Ready)`;
+                claimBtn.classList.add('hidden');
+            } else {
+                presence.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span> Waiting for Friend to join with code <strong>${state.roomCode}</strong>...`;
+                if (state.mySeat !== 2 && state.mySeat !== 1) {
+                    claimBtn.classList.remove('hidden');
+                } else {
+                    claimBtn.classList.add('hidden');
+                }
+            }
+        }
+
+        function renderDraftTable() {
+            renderMultiplayerBar();
+
+            // Update Top Banner
+            const pAvatar = document.getElementById('activePlayerAvatar');
+            const pTitle = document.getElementById('activePlayerTitle');
+            const stepBadge = document.getElementById('draftStepBadge');
+            const instr = document.getElementById('draftInstructionText');
+            const myTurn = isMyTurnToAct();
+
+            document.getElementById('lastActionLog').textContent = state.lastActionText || '';
+
+            if (state.draftFinished) {
+                pAvatar.textContent = 'GG';
+                pAvatar.className = 'w-12 h-12 rounded-xl bg-emerald-500 text-black font-display font-bold text-xl flex items-center justify-center shadow-md';
+                pTitle.textContent = 'Winston Draft Complete!';
+                stepBadge.textContent = 'All 90 Cards Drafted';
+                instr.textContent = 'Head over to the Drafted Pools tab to inspect your decks and export to MTGA, Cockatrice, or Moxfield!';
+            } else {
+                pAvatar.textContent = `P${state.activePlayer}`;
+                pAvatar.className = state.activePlayer === 1
+                    ? 'w-12 h-12 rounded-xl bg-sky-500 text-black font-display font-bold text-xl flex items-center justify-center shadow-md'
+                    : 'w-12 h-12 rounded-xl bg-emerald-500 text-black font-display font-bold text-xl flex items-center justify-center shadow-md';
+                
+                if (state.mode === 'online') {
+                    pTitle.textContent = myTurn
+                        ? `Your Turn (Player ${state.activePlayer})`
+                        : `Waiting for Player ${state.activePlayer}...`;
+                    stepBadge.textContent = state.pileRevealed
+                        ? `Player ${state.activePlayer} is looking at Pile ${state.currentPileIndex + 1}`
+                        : `Pile ${state.currentPileIndex + 1} of 3`;
+                    instr.textContent = myTurn
+                        ? (state.pileRevealed
+                            ? `Inspect Pile ${state.currentPileIndex + 1} below. Draft the entire pile or Pass (adds 1 card from Library).`
+                            : `It's your turn! Click "Reveal Pile ${state.currentPileIndex + 1}" to privately inspect the cards.`)
+                        : `Player ${state.activePlayer} is currently deciding on Pile ${state.currentPileIndex + 1}. Cards remain hidden on your screen.`;
+                } else {
+                    pTitle.textContent = `Player ${state.activePlayer}'s Turn`;
+                    stepBadge.textContent = `Pile ${state.currentPileIndex + 1} of 3`;
+                    instr.textContent = state.pileRevealed
+                        ? `Inspect Pile ${state.currentPileIndex + 1} below. Draft the entire pile or Pass (adds 1 card from Library).`
+                        : `Click "Reveal Pile ${state.currentPileIndex + 1}" when Player ${state.activePlayer} is ready to look.`;
+                }
+            }
+
+            // Update Counts
+            document.getElementById('mainDeckCount').textContent = state.library.length;
+            document.getElementById('libraryRemainingTag').textContent = `${state.library.length} left`;
+            document.getElementById('deckOverlayNumber').textContent = state.library.length;
+            document.getElementById('p1DraftCount').textContent = state.playerPools[1].length;
+            document.getElementById('p2DraftCount').textContent = state.playerPools[2].length;
+            document.getElementById('tabP1Count').textContent = state.playerPools[1].length;
+            document.getElementById('tabP2Count').textContent = state.playerPools[2].length;
+
+            // Render the 3 Pile Boxes
+            const showSeenFaceUp = document.getElementById('publicSeenToggle').checked;
+
+            for (let i = 0; i < 3; i++) {
+                const box = document.getElementById(`pileBox-${i}`);
+                const pile = state.piles[i];
+                const isCurrent = !state.draftFinished && state.currentPileIndex === i;
+
+                box.className = isCurrent
+                    ? 'bg-mtg-panel border-2 border-amber-400 rounded-2xl p-4 flex flex-col justify-between shadow-lg shadow-amber-500/10 transition-all'
+                    : 'bg-mtg-panel/60 border border-mtg-border rounded-2xl p-4 flex flex-col justify-between opacity-80 transition-all';
+
+                const knownCount = pile.filter(c => c.seenByBoth).length;
+                const topCard = pile[pile.length - 1];
+
+                box.innerHTML = `
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="font-display font-bold text-sm text-white flex items-center gap-1.5">
+                            ${isCurrent ? '<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>' : ''}
+                            PILE ${i + 1}
+                        </span>
+                        <span class="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-amber-300 border border-slate-700">
+                            ${pile.length} ${pile.length === 1 ? 'card' : 'cards'}
+                        </span>
+                    </div>
+
+                    <div class="flex-1 flex flex-col items-center justify-center my-2">
+                        ${pile.length === 0 ? `
+                            <div class="w-36 card-aspect rounded-xl border-2 border-dashed border-slate-700 flex items-center justify-center text-xs text-slate-500">
+                                Empty Pile
+                            </div>
+                        ` : (showSeenFaceUp && topCard.seenByBoth) ? `
+                            <div onclick="openCardModal('${topCard.id}')" class="w-36 card-aspect rounded-xl overflow-hidden shadow-lg relative cursor-pointer group">
+                                <img src="${topCard.image}" alt="${topCard.name}" class="w-full h-full object-cover">
+                                <div class="absolute inset-x-0 bottom-0 bg-black/80 text-[10px] text-amber-300 py-1 px-2 text-center">
+                                    Publicly Known (${pile.length} in pile)
+                                </div>
+                            </div>
+                        ` : `
+                            <div class="w-36 card-aspect rounded-xl mtg-card-back ${pile.length > 1 ? 'pile-stack-effect' : ''} flex items-center justify-center">
+                                <div class="z-10 bg-black/80 px-2.5 py-1 rounded border border-slate-700 text-center">
+                                    <span class="font-mono font-bold text-lg text-white">${pile.length}</span>
+                                    <span class="block text-[10px] text-slate-400">Face Down</span>
+                                </div>
+                            </div>
+                        `}
+                    </div>
+
+                    <div class="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                        <span>Seen cards: ${knownCount}/${pile.length}</span>
+                        <span class="${isCurrent ? 'text-amber-400 font-semibold' : 'text-slate-500'}">
+                            ${isCurrent ? 'Active Pile' : 'Waiting'}
+                        </span>
+                    </div>
+                `;
+            }
+
+            renderInspectionDrawer();
+        }
+
+        function renderInspectionDrawer() {
+            const title = document.getElementById('inspectionTitle');
+            const sub = document.getElementById('inspectionSubtitle');
+            const btnReveal = document.getElementById('btnRevealPile');
+            const btnTake = document.getElementById('btnTakePile');
+            const btnPass = document.getElementById('btnPassPile');
+            const grid = document.getElementById('inspectedCardsGrid');
+            const myTurn = isMyTurnToAct();
+
+            if (state.draftFinished) {
+                title.innerHTML = `<i class="ph-fill ph-trophy text-amber-400"></i> Draft Finished!`;
+                sub.textContent = `All 90 cards have been drafted by Player 1 (${state.playerPools[1].length}) and Player 2 (${state.playerPools[2].length}).`;
+                btnReveal.classList.add('hidden');
+                btnTake.classList.add('hidden');
+                btnPass.classList.add('hidden');
+                grid.innerHTML = `
+                    <div class="col-span-full py-8 text-center space-y-3">
+                        <p class="text-slate-300 text-sm">Ready to build your 40-card decks?</p>
+                        <button onclick="switchView('decks')" class="px-5 py-2.5 rounded-xl bg-amber-500 text-black font-bold text-sm shadow-lg">
+                            Open Drafted Pools & Deck Exporter
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            const currentPile = state.piles[state.currentPileIndex];
+            title.innerHTML = `<i class="ph-fill ph-eye text-amber-400"></i> Pile ${state.currentPileIndex + 1} (${currentPile.length} ${currentPile.length === 1 ? 'Card' : 'Cards'})`;
+
+            // Online mode opponent turn lock: keep cards strictly private on the inactive player's device
+            if (state.mode === 'online' && !myTurn) {
+                sub.textContent = `Player ${state.activePlayer} is currently on the clock. Only Player ${state.activePlayer} can see the cards in Pile ${state.currentPileIndex + 1}.`;
+                btnReveal.classList.add('hidden');
+                btnTake.classList.add('hidden');
+                btnPass.classList.add('hidden');
+
+                grid.innerHTML = `
+                    <div class="col-span-full py-10 flex flex-col items-center justify-center text-slate-400 space-y-2">
+                        <i class="ph-duotone ph-lock-key text-4xl text-indigo-400 animate-pulse"></i>
+                        <p class="text-sm text-slate-300 font-medium">
+                            ${state.pileRevealed ? `Player ${state.activePlayer} is privately inspecting Pile ${state.currentPileIndex + 1}...` : `Waiting for Player ${state.activePlayer} to reveal Pile ${state.currentPileIndex + 1}...`}
+                        </p>
+                        <p class="text-xs text-slate-500">The board will update automatically in real time as soon as they Draft or Pass.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            if (!state.pileRevealed) {
+                sub.textContent = state.mode === 'online'
+                    ? `It's your turn! Click "Reveal Pile ${state.currentPileIndex + 1}" to privately inspect the cards.`
+                    : `Hidden for Pass-and-Play privacy. Click "Reveal Pile ${state.currentPileIndex + 1}" to look at the cards.`;
+                btnReveal.classList.remove('hidden');
+                btnReveal.innerHTML = `<i class="ph-bold ph-eye"></i> Reveal Pile ${state.currentPileIndex + 1}`;
+                btnTake.classList.add('hidden');
+                btnPass.classList.add('hidden');
+
+                grid.innerHTML = `
+                    <div class="col-span-full py-10 flex flex-col items-center justify-center text-slate-400 space-y-2">
+                        <i class="ph-duotone ph-eye-slash text-4xl text-slate-500"></i>
+                        <p class="text-sm">Cards in Pile ${state.currentPileIndex + 1} are currently face-down.</p>
+                    </div>
+                `;
+            } else {
+                sub.textContent = `Player ${state.activePlayer}: Choose whether to Draft all ${currentPile.length} card(s) in this pile or Pass.`;
+                btnReveal.classList.add('hidden');
+                btnTake.classList.remove('hidden');
+                btnPass.classList.remove('hidden');
+
+                btnTake.innerHTML = `<i class="ph-bold ph-check-circle"></i> Draft Pile ${state.currentPileIndex + 1} (${currentPile.length})`;
+                btnPass.innerHTML = state.currentPileIndex < 2
+                    ? `<i class="ph-bold ph-arrow-right"></i> Pass Pile ${state.currentPileIndex + 1} (+1 Card)`
+                    : `<i class="ph-bold ph-shuffle"></i> Pass Pile 3 & Draft Blind Top Card`;
+
+                grid.innerHTML = currentPile.map(card => `
+                    <div onclick="openCardModal('${card.id}')" class="group cursor-pointer space-y-1.5 transition transform hover:-translate-y-1">
+                        <div class="rounded-xl overflow-hidden border border-slate-700 shadow-lg relative">
+                            <img src="${card.image}" alt="${card.name}" class="w-full card-aspect object-cover">
+                            <span class="absolute top-2 right-2 text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-black/80 text-white border border-slate-600">
+                                ${card.set} • ${card.released_at}
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between px-1 text-xs">
+                            <span class="font-medium text-slate-200 truncate">${card.name}</span>
+                            <span class="uppercase font-bold text-[10px] ${getRarityColorClass(card.rarity)}">${card.rarity[0]}</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function revealCurrentPile() {
+            if (!isMyTurnToAct()) return;
+            // Skip empty piles automatically if library is empty
+            const currentPile = state.piles[state.currentPileIndex];
+            if (currentPile.length === 0) {
+                advanceToNextNonEmptyPileOrEnd();
+                return;
+            }
+            state.pileRevealed = true;
+            renderDraftTable();
+            window.syncRoomToCloud();
+        }
+
+        function takeCurrentPile() {
+            if (!isMyTurnToAct()) return;
+            const idx = state.currentPileIndex;
+            const takenCards = state.piles[idx];
+            state.playerPools[state.activePlayer].push(...takenCards);
+
+            // Replace pile with 1 card from library if available
+            if (state.library.length > 0) {
+                state.piles[idx] = [state.library.pop()];
+            } else {
+                state.piles[idx] = [];
+            }
+
+            state.lastActionText = `Player ${state.activePlayer} drafted Pile ${idx + 1} (${takenCards.length} card${takenCards.length > 1 ? 's' : ''}).`;
+            document.getElementById('lastActionLog').textContent = state.lastActionText;
+
+            endPlayerTurn();
+        }
+
+        function passCurrentPile() {
+            if (!isMyTurnToAct()) return;
+            const idx = state.currentPileIndex;
+            const currentPile = state.piles[idx];
+
+            // Mark cards in this passed pile as seen
+            currentPile.forEach(c => c.seenByBoth = true);
+
+            // Add 1 card from library to the passed pile
+            if (state.library.length > 0) {
+                currentPile.push(state.library.pop());
+            }
+
+            if (idx < 2) {
+                // Move to next pile
+                state.currentPileIndex = idx + 1;
+                state.pileRevealed = false;
+                // If that next pile is empty (end of draft), handle it
+                if (state.piles[state.currentPileIndex].length === 0) {
+                    advanceToNextNonEmptyPileOrEnd();
+                } else {
+                    state.lastActionText = `Player ${state.activePlayer} passed Pile ${idx + 1} (added 1 card). Moving to Pile ${idx + 2}.`;
+                    document.getElementById('lastActionLog').textContent = state.lastActionText;
+                    renderDraftTable();
+                    window.syncRoomToCloud();
+                }
+            } else {
+                // Passed Pile 3! Must draft top card of library blind
+                if (state.library.length > 0) {
+                    const blindCard = state.library.pop();
+                    state.playerPools[state.activePlayer].push(blindCard);
+                    state.lastActionText = `Player ${state.activePlayer} passed all 3 piles and drafted a blind card from the top of the Library!`;
+                } else {
+                    state.lastActionText = `Player ${state.activePlayer} passed Pile 3 (Library is empty).`;
+                }
+                document.getElementById('lastActionLog').textContent = state.lastActionText;
+                endPlayerTurn();
+            }
+        }
+
+        function endPlayerTurn() {
+            // Check if any cards remain anywhere
+            const totalRemaining = state.library.length + state.piles[0].length + state.piles[1].length + state.piles[2].length;
+            if (totalRemaining === 0) {
+                state.draftFinished = true;
+                renderDraftTable();
+                renderPoolView();
+                window.syncRoomToCloud();
+                return;
+            }
+
+            // Switch active player and reset to first non-empty pile
+            state.activePlayer = state.activePlayer === 1 ? 2 : 1;
+            state.currentPileIndex = 0;
+            state.pileRevealed = false;
+
+            if (state.piles[0].length === 0) {
+                advanceToNextNonEmptyPileOrEnd();
+            } else {
+                renderDraftTable();
+                renderPoolView();
+                window.syncRoomToCloud();
+            }
+        }
+
+        function advanceToNextNonEmptyPileOrEnd() {
+            for (let i = state.currentPileIndex; i < 3; i++) {
+                if (state.piles[i].length > 0) {
+                    state.currentPileIndex = i;
+                    state.pileRevealed = false;
+                    renderDraftTable();
+                    window.syncRoomToCloud();
+                    return;
+                }
+            }
+            // If all remaining piles from current index are empty, check if blind draw or end turn
+            if (state.library.length > 0) {
+                const blindCard = state.library.pop();
+                state.playerPools[state.activePlayer].push(blindCard);
+            }
+            endPlayerTurn();
+        }
+
+        function getRarityColorClass(rarity) {
+            if (rarity === 'mythic') return 'text-mtg-mythic';
+            if (rarity === 'rare') return 'text-mtg-rare';
+            if (rarity === 'uncommon') return 'text-mtg-uncommon';
+            return 'text-slate-300';
+        }
+
+        function selectPoolTab(tabId) {
+            state.selectedPoolView = tabId;
+            const b1 = document.getElementById('tabP1Pool');
+            const b2 = document.getElementById('tabP2Pool');
+            const bAll = document.getElementById('tabAllPool');
+
+            b1.className = tabId === 1 ? 'px-4 py-2 rounded-xl font-semibold text-sm bg-sky-500 text-black transition' : 'px-4 py-2 rounded-xl font-semibold text-sm bg-slate-800 text-slate-300 hover:bg-slate-700 transition';
+            b2.className = tabId === 2 ? 'px-4 py-2 rounded-xl font-semibold text-sm bg-emerald-500 text-black transition' : 'px-4 py-2 rounded-xl font-semibold text-sm bg-slate-800 text-slate-300 hover:bg-slate-700 transition';
+            bAll.className = tabId === 0 ? 'px-4 py-2 rounded-xl font-semibold text-sm bg-amber-500 text-black transition' : 'px-4 py-2 rounded-xl font-semibold text-sm bg-slate-800 text-slate-300 hover:bg-slate-700 transition';
+
+            renderPoolView();
+        }
+
+        function getActiveViewCards() {
+            if (state.selectedPoolView === 1) return state.playerPools[1];
+            if (state.selectedPoolView === 2) return state.playerPools[2];
+            return state.fullPool;
+        }
+
+        function renderPoolView() {
+            const cards = getActiveViewCards();
+            const grid = document.getElementById('deckPoolGrid');
+
+            if (cards.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full py-12 text-center text-slate-400">
+                        No cards in this pool yet. Draft some piles on the Draft Table!
+                    </div>
+                `;
+                return;
+            }
+
+            // Sort by Mana Value (CMC)
+            const sorted = [...cards].sort((a, b) => (a.cmc || 0) - (b.cmc || 0));
+
+            grid.innerHTML = sorted.map(card => `
+                <div onclick="openCardModal('${card.id}')" class="cursor-pointer group space-y-1">
+                    <div class="rounded-xl overflow-hidden border border-slate-800 group-hover:border-amber-400 transition shadow-md relative">
+                        <img src="${card.image}" alt="${card.name}" class="w-full card-aspect object-cover">
+                        <span class="absolute bottom-1.5 right-1.5 text-[10px] font-mono bg-black/80 text-amber-300 px-1.5 py-0.5 rounded">
+                            ${card.set} (${card.released_at})
+                        </span>
+                    </div>
+                    <div class="text-xs font-medium text-slate-200 truncate px-0.5">${card.name}</div>
+                </div>
+            `).join('');
+        }
+
+        function copyDecklist(format) {
+            const cards = getActiveViewCards();
+            if (cards.length === 0) return;
+
+            const lines = cards.map(c => {
+                if (format === 'mtga') {
+                    return `1 ${c.name} (${c.set}) ${c.collector_number}`;
+                }
+                return `1 ${c.name}`;
+            }).join('\n');
+
+            const tempArea = document.createElement('textarea');
+            tempArea.value = lines;
+            document.body.appendChild(tempArea);
+            tempArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempArea);
+
+            const toast = document.getElementById('copyToast');
+            document.getElementById('copyToastText').textContent = `Copied ${cards.length} cards (${format.toUpperCase()} format) to clipboard!`;
+            toast.classList.remove('hidden');
+        }
+
+        function openCardModal(cardId) {
+            const card = state.fullPool.find(c => c.id === cardId);
+            if (!card) return;
+            document.getElementById('modalCardName').textContent = card.name;
+            document.getElementById('modalCardImg').src = card.image;
+            document.getElementById('modalCardSet').textContent = `${card.set_name} (${card.released_at}) • ${card.rarity.toUpperCase()}`;
+            document.getElementById('modalScryfallLink').href = card.scryfall_uri;
+
+            const modal = document.getElementById('cardModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeCardModal() {
+            const modal = document.getElementById('cardModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        let deferredInstallPrompt = null;
+
+        function setupProgressiveWebApp() {
+            // Generate a sleek SVG app icon dynamically for Home Screen & Manifest
+            const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                <defs>
+                    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#f59e0b"/>
+                        <stop offset="100%" stop-color="#c2410c"/>
+                    </linearGradient>
+                </defs>
+                <rect width="512" height="512" rx="112" fill="#0f1117"/>
+                <rect x="36" y="36" width="440" height="440" rx="92" fill="url(#g)"/>
+                <rect x="136" y="106" width="180" height="260" rx="20" transform="rotate(-10 226 236)" fill="#181b24" stroke="#fde68a" stroke-width="12"/>
+                <rect x="196" y="136" width="180" height="260" rx="20" transform="rotate(8 286 266)" fill="#0f1117" stroke="#ffffff" stroke-width="12"/>
+                <circle cx="286" cy="266" r="44" fill="#f59e0b"/>
+            </svg>`;
+            const iconDataUrl = 'data:image/svg+xml;utf8,' + encodeURIComponent(svgIcon);
+            document.getElementById('appleTouchIconLink').href = iconDataUrl;
+
+            const manifestObj = {
+                name: "MTG Chaos Winston Draft",
+                short_name: "Chaos Winston",
+                description: "Custom 90-Card 2-Player MTG Winston Draft Simulator powered by Scryfall",
+                start_url: window.location.href,
+                display: "standalone",
+                background_color: "#0b0d12",
+                theme_color: "#0f1117",
+                orientation: "portrait-primary",
+                icons: [
+                    {
+                        src: iconDataUrl,
+                        sizes: "512x512",
+                        type: "image/svg+xml",
+                        purpose: "any maskable"
+                    }
+                ]
+            };
+
+            const manifestBlob = new Blob([JSON.stringify(manifestObj)], { type: 'application/manifest+json' });
+            document.getElementById('pwaManifestLink').href = URL.createObjectURL(manifestBlob);
+
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredInstallPrompt = e;
+                const banner = document.getElementById('nativeInstallBanner');
+                if (banner) banner.classList.remove('hidden');
+            });
+        }
+
+        function openInstallModal() {
+            const modal = document.getElementById('installAppModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeInstallModal() {
+            const modal = document.getElementById('installAppModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        async function triggerNativeInstall() {
+            if (!deferredInstallPrompt) return;
+            deferredInstallPrompt.prompt();
+            await deferredInstallPrompt.userChoice;
+            deferredInstallPrompt = null;
+            document.getElementById('nativeInstallBanner').classList.add('hidden');
+            closeInstallModal();
+        }
+
+        function switchView(viewName) {
+            const views = ['setup', 'draft', 'decks'];
+            views.forEach(v => {
+                document.getElementById(`view-${v}`).classList.toggle('hidden', v !== viewName);
+            });
+
+            const btnSetup = document.getElementById('navSetupBtn');
+            const btnDraft = document.getElementById('navDraftBtn');
+            const btnDeck = document.getElementById('navDeckBtn');
+
+            const activeClass = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 transition';
+            const inactiveClass = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-slate-800/60 text-slate-300 hover:bg-slate-700 border border-slate-700/50 flex items-center gap-1.5 transition disabled:opacity-50';
+
+            btnSetup.className = viewName === 'setup' ? activeClass : inactiveClass;
+            btnDraft.className = viewName === 'draft' ? activeClass : inactiveClass;
+            btnDeck.className = viewName === 'decks' ? activeClass : inactiveClass;
+
+            if (viewName === 'decks') {
+                renderPoolView();
+            }
+        }
+
+        // Initialize query preview on load
+        window.onload = function () {
+            updateRarityLabels();
+            updateQueryPreview();
+            setupProgressiveWebApp();
+        };
+    </script>
+
+    <!-- ==================== REAL-TIME ONLINE MULTIPLAYER MODULE ==================== -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'chaos-winston-draft';
+        let db = null;
+        let auth = null;
+        let currentUser = null;
+        let roomUnsubscribe = null;
+
+        async function initMultiplayerAuth() {
+            const badge = document.getElementById('authStatusBadge');
+            const uidSpan = document.getElementById('currentUserIdDisplay');
+            try {
+                if (typeof __firebase_config === 'undefined' || !__firebase_config) {
+                    badge.textContent = 'Offline / Local Mode';
+                    uidSpan.textContent = 'Local-Session';
+                    return;
+                }
+                const firebaseConfig = JSON.parse(__firebase_config);
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    currentUser = user;
+                    if (user) {
+                        badge.textContent = 'Multiplayer Ready';
+                        badge.className = 'text-[11px] font-mono text-emerald-400';
+                        uidSpan.textContent = user.uid;
+                    }
+                });
+            } catch (err) {
+                console.error('Multiplayer initialization error:', err);
+                badge.textContent = 'Local Mode Only';
+            }
+        }
+
+        function generateRoomCode() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let code = '';
+            for (let i = 0; i < 6; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return code;
+        }
+
+        function getRoomDocRef(roomCode) {
+            return doc(db, 'artifacts', appId, 'public', 'data', 'winston_rooms', roomCode.toUpperCase());
+        }
+
+        // Push current local state to Firestore room document
+        window.syncRoomToCloud = async function () {
+            if (state.mode !== 'online' || !state.roomCode || !db || !currentUser) return;
+            try {
+                const roomRef = getRoomDocRef(state.roomCode);
+                await setDoc(roomRef, {
+                    roomCode: state.roomCode,
+                    player1Id: state.player1Id,
+                    player2Id: state.player2Id,
+                    activePlayer: state.activePlayer,
+                    currentPileIndex: state.currentPileIndex,
+                    pileRevealed: state.pileRevealed,
+                    draftFinished: state.draftFinished,
+                    lastActionText: state.lastActionText || '',
+                    publicSeenToggle: document.getElementById('publicSeenToggle').checked,
+                    fullPoolJson: JSON.stringify(state.fullPool),
+                    libraryJson: JSON.stringify(state.library),
+                    pilesJson: JSON.stringify(state.piles),
+                    playerPoolsJson: JSON.stringify(state.playerPools),
+                    updatedAt: Date.now()
+                }, { merge: true });
+            } catch (err) {
+                console.error('Error syncing room state:', err);
+            }
+        };
+
+        // Subscribe to real-time updates for a room code
+        function subscribeToRoom(roomCode) {
+            if (!db || !currentUser) return;
+            if (roomUnsubscribe) {
+                roomUnsubscribe();
+                roomUnsubscribe = null;
+            }
+
+            const roomRef = getRoomDocRef(roomCode);
+            roomUnsubscribe = onSnapshot(roomRef, (snapshot) => {
+                if (!snapshot.exists()) return;
+                const data = snapshot.data();
+
+                state.mode = 'online';
+                state.roomCode = data.roomCode;
+                state.player1Id = data.player1Id || null;
+                state.player2Id = data.player2Id || null;
+
+                if (currentUser.uid === state.player1Id) {
+                    state.mySeat = 1;
+                } else if (currentUser.uid === state.player2Id) {
+                    state.mySeat = 2;
+                } else {
+                    state.mySeat = 0;
+                }
+
+                state.activePlayer = data.activePlayer || 1;
+                state.currentPileIndex = data.currentPileIndex || 0;
+                state.pileRevealed = Boolean(data.pileRevealed);
+                state.draftFinished = Boolean(data.draftFinished);
+                state.lastActionText = data.lastActionText || '';
+
+                if (typeof data.publicSeenToggle === 'boolean') {
+                    document.getElementById('publicSeenToggle').checked = data.publicSeenToggle;
+                }
+
+                try {
+                    state.fullPool = JSON.parse(data.fullPoolJson || '[]');
+                    state.library = JSON.parse(data.libraryJson || '[]');
+                    state.piles = JSON.parse(data.pilesJson || '[[],[],[]]');
+                    state.playerPools = JSON.parse(data.playerPoolsJson || '{"1":[],"2":[]}');
+                } catch (parseErr) {
+                    console.error('Error parsing room JSON:', parseErr);
+                }
+
+                document.getElementById('navDraftBtn').disabled = false;
+                document.getElementById('navDeckBtn').disabled = false;
+
+                renderDraftTable();
+                renderPoolView();
+            }, (error) => {
+                console.error('Room snapshot error:', error);
+            });
+        }
+
+        // Host a new online room with the freshly generated 90-card pool
+        window.hostOnlineRoomWithPool = async function (cards) {
+            if (!db || !currentUser) {
+                state.mode = 'local';
+                initWinstonDraft(cards);
+                return;
+            }
+
+            const code = generateRoomCode();
+            state.mode = 'online';
+            state.roomCode = code;
+            state.mySeat = 1;
+            state.player1Id = currentUser.uid;
+            state.player2Id = null;
+            state.selectedPoolView = 1;
+
+            initWinstonDraft(cards);
+            state.lastActionText = `Room ${code} created by Player 1! Share the code with Player 2 to draft together.`;
+
+            await window.syncRoomToCloud();
+            subscribeToRoom(code);
+        };
+
+        // Join an existing room by 6-character code
+        window.joinOnlineRoom = async function () {
+            const alertBox = document.getElementById('setupAlertBox');
+            alertBox.classList.add('hidden');
+
+            if (!db || !currentUser) {
+                alertBox.textContent = 'Multiplayer connection is still initializing. Please try again in a moment.';
+                alertBox.classList.remove('hidden');
+                return;
+            }
+
+            const rawCode = document.getElementById('joinRoomInput').value.trim().toUpperCase();
+            if (rawCode.length < 4) {
+                alertBox.textContent = 'Please enter a valid 6-character Room Code to join.';
+                alertBox.classList.remove('hidden');
+                return;
+            }
+
+            const btn = document.getElementById('joinRoomBtn');
+            btn.disabled = true;
+
+            try {
+                const roomRef = getRoomDocRef(rawCode);
+                const snap = await getDoc(roomRef);
+
+                if (!snap.exists()) {
+                    alertBox.textContent = `No active draft room found with code "${rawCode}". Double-check the code with your friend!`;
+                    alertBox.classList.remove('hidden');
+                    btn.disabled = false;
+                    return;
+                }
+
+                const data = snap.data();
+                // Assign joining user as Player 2 if seat 2 is open and they aren't Player 1
+                if (!data.player2Id && data.player1Id !== currentUser.uid) {
+                    await updateDoc(roomRef, {
+                        player2Id: currentUser.uid,
+                        lastActionText: `Player 2 joined Room ${rawCode}! Draft is live.`,
+                        updatedAt: Date.now()
+                    });
+                    state.selectedPoolView = 2;
+                } else if (data.player2Id === currentUser.uid) {
+                    state.selectedPoolView = 2;
+                } else {
+                    state.selectedPoolView = 1;
+                }
+
+                subscribeToRoom(rawCode);
+                switchView('draft');
+            } catch (err) {
+                console.error('Error joining room:', err);
+                alertBox.textContent = 'Could not join room. Please check your connection and try again.';
+                alertBox.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+            }
+        };
+
+        window.claimPlayer2Seat = async function () {
+            if (!db || !currentUser || !state.roomCode) return;
+            try {
+                const roomRef = getRoomDocRef(state.roomCode);
+                await updateDoc(roomRef, {
+                    player2Id: currentUser.uid,
+                    lastActionText: `Player 2 took their seat in Room ${state.roomCode}!`,
+                    updatedAt: Date.now()
+                });
+                state.selectedPoolView = 2;
+            } catch (err) {
+                console.error('Error claiming seat 2:', err);
+            }
+        };
+
+        window.leaveOnlineRoom = function () {
+            if (roomUnsubscribe) {
+                roomUnsubscribe();
+                roomUnsubscribe = null;
+            }
+            state.mode = 'local';
+            state.roomCode = null;
+            state.mySeat = 1;
+            renderDraftTable();
+            switchView('setup');
+        };
+
+        initMultiplayerAuth();
+    </script>
+</body>
+</html>
