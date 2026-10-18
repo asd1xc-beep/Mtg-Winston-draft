@@ -1675,46 +1675,75 @@
     <!-- ==================== REAL-TIME ONLINE MULTIPLAYER MODULE ==================== -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Your personal Firebase project configuration for GitHub Pages / standalone hosting
+        const USER_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyCoxh3C_3_eCG1bpysBGsoKlZUhT0XXkd4",
+            authDomain: "mtg-winston-chaos-draft.firebaseapp.com",
+            projectId: "mtg-winston-chaos-draft",
+            storageBucket: "mtg-winston-chaos-draft.firebasestorage.app",
+            messagingSenderId: "186727932966",
+            appId: "1:186727932966:web:ffdddb00ddf027a561f2e7",
+            measurementId: "G-7CHMY0GY0C"
+        };
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'chaos-winston-draft';
         let db = null;
         let auth = null;
-        let currentUser = null;
+        let myPlayerId = null;
         let roomUnsubscribe = null;
+
+        // Generate a unique per-tab/per-device player ID so 2-player works across devices AND across 2 tabs on the same browser
+        function getOrCreateSessionPlayerId() {
+            let pid = sessionStorage.getItem('chaos_winston_player_id');
+            if (!pid) {
+                const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+                let suffix = '';
+                for (let i = 0; i < 6; i++) {
+                    suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                pid = 'PLR-' + suffix;
+                sessionStorage.setItem('chaos_winston_player_id', pid);
+            }
+            return pid;
+        }
 
         async function initMultiplayerAuth() {
             const badge = document.getElementById('authStatusBadge');
             const uidSpan = document.getElementById('currentUserIdDisplay');
+
+            myPlayerId = getOrCreateSessionPlayerId();
+            uidSpan.textContent = myPlayerId;
+
             try {
-                if (typeof __firebase_config === 'undefined' || !__firebase_config) {
-                    badge.textContent = 'Offline / Local Mode';
-                    uidSpan.textContent = 'Local-Session';
-                    return;
-                }
-                const firebaseConfig = JSON.parse(__firebase_config);
+                const usingInjectedEnv = typeof __firebase_config !== 'undefined' && __firebase_config;
+                const firebaseConfig = usingInjectedEnv
+                    ? JSON.parse(__firebase_config)
+                    : USER_FIREBASE_CONFIG;
+
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
 
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
+                // Attempt Firebase Auth sign-in, but do not block Firestore if the domain (e.g. github.io) isn't whitelisted in Auth yet
+                try {
+                    if (usingInjectedEnv && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (authErr) {
+                    console.warn('Firebase Auth notice (continuing with direct Firestore session ID):', authErr.code || authErr.message);
                 }
 
-                onAuthStateChanged(auth, (user) => {
-                    currentUser = user;
-                    if (user) {
-                        badge.textContent = 'Multiplayer Ready';
-                        badge.className = 'text-[11px] font-mono text-emerald-400';
-                        uidSpan.textContent = user.uid;
-                    }
-                });
+                badge.textContent = 'Online Ready (Cloud Connected)';
+                badge.className = 'text-[11px] font-mono text-emerald-400';
             } catch (err) {
                 console.error('Multiplayer initialization error:', err);
-                badge.textContent = 'Local Mode Only';
+                badge.textContent = 'Connection Error';
+                badge.className = 'text-[11px] font-mono text-red-400';
             }
         }
 
@@ -1731,9 +1760,30 @@
             return doc(db, 'artifacts', appId, 'public', 'data', 'winston_rooms', roomCode.toUpperCase());
         }
 
+        function showCloudErrorBanner(err, contextLabel) {
+            const alertBox = document.getElementById('setupAlertBox');
+            const code = err?.code || '';
+            let helpfulHint = err?.message || 'Unknown cloud error.';
+
+            if (code.includes('permission-denied')) {
+                helpfulHint = `Firestore Permission Denied (${contextLabel}). In your Firebase Console -> Firestore Database -> Rules, make sure rules are set to: allow read, write: if true; and click Publish.`;
+            } else if (code.includes('not-found') || helpfulHint.includes('database (default) does not exist')) {
+                helpfulHint = `Firestore Database not created yet. In Firebase Console -> Build -> Firestore Database, click "Create database" and start in Test Mode.`;
+            }
+
+            if (alertBox) {
+                alertBox.textContent = helpfulHint;
+                alertBox.classList.remove('hidden');
+            }
+            const lastLog = document.getElementById('lastActionLog');
+            if (lastLog) {
+                lastLog.textContent = helpfulHint;
+            }
+        }
+
         // Push current local state to Firestore room document
         window.syncRoomToCloud = async function () {
-            if (state.mode !== 'online' || !state.roomCode || !db || !currentUser) return;
+            if (state.mode !== 'online' || !state.roomCode || !db || !myPlayerId) return;
             try {
                 const roomRef = getRoomDocRef(state.roomCode);
                 await setDoc(roomRef, {
@@ -1752,14 +1802,17 @@
                     playerPoolsJson: JSON.stringify(state.playerPools),
                     updatedAt: Date.now()
                 }, { merge: true });
+                return true;
             } catch (err) {
                 console.error('Error syncing room state:', err);
+                showCloudErrorBanner(err, 'Saving Room');
+                return false;
             }
         };
 
         // Subscribe to real-time updates for a room code
         function subscribeToRoom(roomCode) {
-            if (!db || !currentUser) return;
+            if (!db || !myPlayerId) return;
             if (roomUnsubscribe) {
                 roomUnsubscribe();
                 roomUnsubscribe = null;
@@ -1775,9 +1828,9 @@
                 state.player1Id = data.player1Id || null;
                 state.player2Id = data.player2Id || null;
 
-                if (currentUser.uid === state.player1Id) {
+                if (myPlayerId === state.player1Id) {
                     state.mySeat = 1;
-                } else if (currentUser.uid === state.player2Id) {
+                } else if (myPlayerId === state.player2Id) {
                     state.mySeat = 2;
                 } else {
                     state.mySeat = 0;
@@ -1809,12 +1862,13 @@
                 renderPoolView();
             }, (error) => {
                 console.error('Room snapshot error:', error);
+                showCloudErrorBanner(error, 'Listening to Room');
             });
         }
 
         // Host a new online room with the freshly generated 90-card pool
         window.hostOnlineRoomWithPool = async function (cards) {
-            if (!db || !currentUser) {
+            if (!db || !myPlayerId) {
                 state.mode = 'local';
                 initWinstonDraft(cards);
                 return;
@@ -1824,15 +1878,17 @@
             state.mode = 'online';
             state.roomCode = code;
             state.mySeat = 1;
-            state.player1Id = currentUser.uid;
+            state.player1Id = myPlayerId;
             state.player2Id = null;
             state.selectedPoolView = 1;
 
             initWinstonDraft(cards);
             state.lastActionText = `Room ${code} created by Player 1! Share the code with Player 2 to draft together.`;
 
-            await window.syncRoomToCloud();
-            subscribeToRoom(code);
+            const ok = await window.syncRoomToCloud();
+            if (ok) {
+                subscribeToRoom(code);
+            }
         };
 
         // Join an existing room by 6-character code
@@ -1840,7 +1896,7 @@
             const alertBox = document.getElementById('setupAlertBox');
             alertBox.classList.add('hidden');
 
-            if (!db || !currentUser) {
+            if (!db || !myPlayerId) {
                 alertBox.textContent = 'Multiplayer connection is still initializing. Please try again in a moment.';
                 alertBox.classList.remove('hidden');
                 return;
@@ -1869,14 +1925,14 @@
 
                 const data = snap.data();
                 // Assign joining user as Player 2 if seat 2 is open and they aren't Player 1
-                if (!data.player2Id && data.player1Id !== currentUser.uid) {
+                if (!data.player2Id && data.player1Id !== myPlayerId) {
                     await updateDoc(roomRef, {
-                        player2Id: currentUser.uid,
+                        player2Id: myPlayerId,
                         lastActionText: `Player 2 joined Room ${rawCode}! Draft is live.`,
                         updatedAt: Date.now()
                     });
                     state.selectedPoolView = 2;
-                } else if (data.player2Id === currentUser.uid) {
+                } else if (data.player2Id === myPlayerId) {
                     state.selectedPoolView = 2;
                 } else {
                     state.selectedPoolView = 1;
@@ -1886,25 +1942,25 @@
                 switchView('draft');
             } catch (err) {
                 console.error('Error joining room:', err);
-                alertBox.textContent = 'Could not join room. Please check your connection and try again.';
-                alertBox.classList.remove('hidden');
+                showCloudErrorBanner(err, 'Joining Room');
             } finally {
                 btn.disabled = false;
             }
         };
 
         window.claimPlayer2Seat = async function () {
-            if (!db || !currentUser || !state.roomCode) return;
+            if (!db || !myPlayerId || !state.roomCode) return;
             try {
                 const roomRef = getRoomDocRef(state.roomCode);
                 await updateDoc(roomRef, {
-                    player2Id: currentUser.uid,
+                    player2Id: myPlayerId,
                     lastActionText: `Player 2 took their seat in Room ${state.roomCode}!`,
                     updatedAt: Date.now()
                 });
                 state.selectedPoolView = 2;
             } catch (err) {
                 console.error('Error claiming seat 2:', err);
+                showCloudErrorBanner(err, 'Claiming Seat 2');
             }
         };
 
