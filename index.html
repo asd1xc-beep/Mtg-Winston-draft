@@ -1675,7 +1675,7 @@
     <!-- ==================== REAL-TIME ONLINE MULTIPLAYER MODULE ==================== -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { initializeAuth, browserSessionPersistence, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Your personal Firebase project configuration for GitHub Pages / standalone hosting
@@ -1695,27 +1695,13 @@
         let myPlayerId = null;
         let roomUnsubscribe = null;
 
-        // Generate a unique per-tab/per-device player ID so 2-player works across devices AND across 2 tabs on the same browser
-        function getOrCreateSessionPlayerId() {
-            let pid = sessionStorage.getItem('chaos_winston_player_id');
-            if (!pid) {
-                const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-                let suffix = '';
-                for (let i = 0; i < 6; i++) {
-                    suffix += chars.charAt(Math.floor(Math.random() * chars.length));
-                }
-                pid = 'PLR-' + suffix;
-                sessionStorage.setItem('chaos_winston_player_id', pid);
-            }
-            return pid;
-        }
-
+        // Player identity = the Firebase Auth uid. Security Rules can verify this value
+        // (request.auth.uid), so nobody can impersonate another player's seat.
+        // Session persistence gives each browser TAB its own anonymous user, so
+        // 2-tab testing on one browser still works, and a refresh keeps the same uid.
         async function initMultiplayerAuth() {
             const badge = document.getElementById('authStatusBadge');
             const uidSpan = document.getElementById('currentUserIdDisplay');
-
-            myPlayerId = getOrCreateSessionPlayerId();
-            uidSpan.textContent = myPlayerId;
 
             try {
                 const usingInjectedEnv = typeof __firebase_config !== 'undefined' && __firebase_config;
@@ -1724,25 +1710,37 @@
                     : USER_FIREBASE_CONFIG;
 
                 const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
+                auth = initializeAuth(app, { persistence: browserSessionPersistence });
 
-                // Attempt Firebase Auth sign-in, but do not block Firestore if the domain (e.g. github.io) isn't whitelisted in Auth yet
-                try {
-                    if (usingInjectedEnv && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch (authErr) {
-                    console.warn('Firebase Auth notice (continuing with direct Firestore session ID):', authErr.code || authErr.message);
+                let cred;
+                if (usingInjectedEnv && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    cred = await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    cred = await signInAnonymously(auth);
                 }
 
+                // Only enable cloud features once we have a verified identity
+                myPlayerId = cred.user.uid;
+                db = getFirestore(app);
+
+                uidSpan.textContent = 'PLR-' + myPlayerId.slice(0, 6).toUpperCase();
+                uidSpan.title = myPlayerId;
                 badge.textContent = 'Online Ready (Cloud Connected)';
                 badge.className = 'text-[11px] font-mono text-emerald-400';
             } catch (err) {
-                console.error('Multiplayer initialization error:', err);
-                badge.textContent = 'Connection Error';
+                console.error('Multiplayer sign-in error:', err);
+                db = null;
+                myPlayerId = null;
+                uidSpan.textContent = 'Offline';
+
+                const code = err?.code || '';
+                if (code.includes('operation-not-allowed') || code.includes('admin-restricted-operation')) {
+                    badge.textContent = 'Sign-in Disabled (enable Anonymous auth in Firebase)';
+                } else if (code.includes('network-request-failed')) {
+                    badge.textContent = 'Offline (no network) - local play only';
+                } else {
+                    badge.textContent = 'Connection Error - local play only';
+                }
                 badge.className = 'text-[11px] font-mono text-red-400';
             }
         }
@@ -1766,7 +1764,7 @@
             let helpfulHint = err?.message || 'Unknown cloud error.';
 
             if (code.includes('permission-denied')) {
-                helpfulHint = `Firestore Permission Denied (${contextLabel}). In your Firebase Console -> Firestore Database -> Rules, make sure rules are set to: allow read, write: if true; and click Publish.`;
+                helpfulHint = `Action not allowed (${contextLabel}). It may not be your turn, the seat may already be taken, or the room's security rules rejected the change. Try refreshing the page.`;
             } else if (code.includes('not-found') || helpfulHint.includes('database (default) does not exist')) {
                 helpfulHint = `Firestore Database not created yet. In Firebase Console -> Build -> Firestore Database, click "Create database" and start in Test Mode.`;
             }
@@ -1782,14 +1780,19 @@
         }
 
         // Push current local state to Firestore room document
-        window.syncRoomToCloud = async function () {
+        // Seats (player1Id / player2Id) are written ONLY when the room is first created.
+        // Normal game moves never touch them, so a stale local copy can't wipe out
+        // the other player's seat. Player 2's seat is claimed separately (join/claim).
+        window.syncRoomToCloud = async function (options = {}) {
             if (state.mode !== 'online' || !state.roomCode || !db || !myPlayerId) return;
             try {
                 const roomRef = getRoomDocRef(state.roomCode);
+                const seatFields = options.isNewRoom
+                    ? { player1Id: state.player1Id, player2Id: null }
+                    : {};
                 await setDoc(roomRef, {
                     roomCode: state.roomCode,
-                    player1Id: state.player1Id,
-                    player2Id: state.player2Id,
+                    ...seatFields,
                     activePlayer: state.activePlayer,
                     currentPileIndex: state.currentPileIndex,
                     pileRevealed: state.pileRevealed,
@@ -1885,7 +1888,7 @@
             initWinstonDraft(cards);
             state.lastActionText = `Room ${code} created by Player 1! Share the code with Player 2 to draft together.`;
 
-            const ok = await window.syncRoomToCloud();
+            const ok = await window.syncRoomToCloud({ isNewRoom: true });
             if (ok) {
                 subscribeToRoom(code);
             }
